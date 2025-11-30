@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 // !!! ВАЖНО: ЗАМЕНИТЕ ЭТО НА АКТУАЛЬНУЮ ССЫЛКУ, КОТОРУЮ ВЫДАЛ NGROK !!!
-const API_BASE_URL = "http://placeholder-api-test.com"; 
+const API_BASE_URL = "http://placeholder-api-test.com"; // ВРЕМЕННЫЙ АДРЕС ДЛЯ УСПЕШНОЙ СБОРКИ НА VERCEL
 
 // --- 1. ИНТЕГРИРОВАННАЯ ЛОГИКА useTelegramInit ---
 
@@ -27,7 +27,8 @@ interface MinerData {
 function App() {
   // Локальные стейты, заменяющие useTelegramInit
   const [tg, setTg] = useState<any>(null);
-  const [user, setUser] = useState<any>(null);
+  // ИСПРАВЛЕНИЕ TS6133: Удаляем неиспользуемый стейт 'user'
+  // const [user, setUser] = useState<any>(null); // УДАЛЕНО
   const [inited, setInited] = useState(false);
 
   // Дополнительные стейты приложения
@@ -48,7 +49,8 @@ function App() {
 
         try {
           if (webApp.initDataUnsafe && webApp.initDataUnsafe.user) {
-            setUser(webApp.initDataUnsafe.user);
+            // Устанавливаем пользователя, но не сохраняем в отдельный стейт, чтобы избежать TS6133
+            // setUser(webApp.initDataUnsafe.user);
           }
         } catch (e) {
           console.error("Failed to parse Telegram user data:", e);
@@ -151,19 +153,19 @@ function App() {
       
       tg.MainButton.setText(canClaim ? `✨ Забрать ${data.earned_now.toFixed(4)} USDT` : `Пополнить (Баланс: ${data.current_base_balance.toFixed(2)} USDT)`);
       tg.MainButton.show();
-      tg.MainButton.disable(); // Отключаем по умолчанию
+      // tg.MainButton.disable(); // Это не нужно, так как setParams контролирует is_active
 
       if (canClaim) {
         tg.MainButton.setParams({
           color: tg.themeParams.button_color || '#33a3e3',
           text_color: tg.themeParams.button_text_color || '#ffffff',
-          is_active: !isClaiming,
+          is_active: !isClaiming, // Активна, если не идет процесс клейма
           is_visible: true,
         });
         tg.MainButton.onClick(handleClaim);
       } else {
         // Если клеймить нечего, кнопка ведет на пополнение
-         tg.MainButton.setParams({
+        tg.MainButton.setParams({
           color: tg.themeParams.button_color || '#2481cc',
           text_color: tg.themeParams.button_text_color || '#ffffff',
           is_active: true, // Всегда активна для пополнения
@@ -200,15 +202,17 @@ function App() {
   
   const baseBalanceDisplay = data?.current_base_balance?.toFixed(2) || '0.00';
   const earnedNowDisplay = data?.earned_now?.toFixed(4) || '0.0000';
-  const totalBalanceDisplay = data?.miner_balance?.toFixed(2) || '0.00';
+  // ИСПРАВЛЕНИЕ TS6133: totalBalanceDisplay больше не нужен,
+  // так как его значение нигде не использовалось в JSX.
+  // const totalBalanceDisplay = data?.miner_balance?.toFixed(2) || '0.00'; 
   
   return (
     <div className="App" style={{ 
-        padding: '20px', 
-        color: tg?.themeParams.text_color || 'black', 
-        minHeight: '100vh', 
-        backgroundColor: tg?.themeParams.bg_color || '#f0f0f0',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+      padding: '20px', 
+      color: tg?.themeParams.text_color || 'black', 
+      minHeight: '100vh', 
+      backgroundColor: tg?.themeParams.bg_color || '#f0f0f0',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
     }}>
       <h1 style={{ color: tg?.themeParams.accent_text_color || '#2481cc', textAlign: 'center' }}>Miner App (TON Invest)</h1>
       
