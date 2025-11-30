@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 // !!! ВАЖНО: ЗАМЕНИТЕ ЭТО НА АКТУАЛЬНУЮ ССЫЛКУ, КОТОРУЮ ВЫДАЛ NGROK !!!
-const API_BASE_URL = "https://coeducational-unconstrained-roxanne.ngrok-free.dev"; 
+const API_BASE_URL = "http://placeholder-api-test.com"; 
 
 // --- 1. ИНТЕГРИРОВАННАЯ ЛОГИКА useTelegramInit ---
 
