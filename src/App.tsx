@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // =================================================================
 // === ВНИМАНИЕ: КРИТИЧЕСКИ ВАЖНАЯ КОНФИГУРАЦИЯ БЭКЕНДА! ===
@@ -226,7 +226,7 @@ function App() {
   // --- Рендеринг ---
 
   if (loading) {
-    return <div className="text-center p-8 text-xl text-gray-400">Загрузка данных "спермы"...</div>;
+    return <div className="text-center p-8 text-xl text-gray-400">Загрузка данных "хуйни"...</div>;
   }
   
   if (error || !status) {
