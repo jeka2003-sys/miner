@@ -1,27 +1,33 @@
 {
   "compilerOptions": {
+    // Настройки для современного TSX/React-проекта
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOMIterable"],
+    
+    // FIX TS6046: Упрощение и использование проверенных значений для lib
+    "lib": ["ES2020", "DOM"], 
+    
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* JSX Mode: FIX для TS2503 */
-    "jsx": "react-jsx",
-
-    /* Bundler mode */
+    // Настройки для сборщика (Vite)
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
+    "noEmit": true, 
+    "jsx": "react-jsx", // Обязательно для React
 
-    /* Linting */
+    // Строгие правила
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  // Указываем, что нужно включить все файлы из папки src
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  
+  // FIX TS6306 & TS6310: Удаляем секцию references, поскольку она требует 
+  // наличия и правильной настройки tsconfig.node.json, что вызывает ошибки.
+  // "references": [{ "path": "./tsconfig.node.json" }] 
 }
