@@ -89,6 +89,7 @@ function App() {
   const handleClaim = useCallback(async () => {
     if (!initData || !status || !mainButton || status.earned_now < 0.0001) return;
     
+    // 1. Блокируем кнопку и показываем лоадер
     mainButton.disable();
     mainButton.showLoader();
 
@@ -114,8 +115,10 @@ function App() {
       
       setClaimMessage(result.message);
       
+      // 2. Успешный клейм: немедленно запрашиваем новый статус для обновления UI
       await fetchStatus();
-
+      // MainButton будет обновлен в useEffect ниже после получения нового статуса
+      
     } catch (err) {
       console.error("Ошибка при клейме:", err);
       if (err instanceof Error) {
@@ -124,6 +127,8 @@ function App() {
         setClaimMessage("Неизвестная ошибка при клейме.");
       }
     } finally {
+      // 3. Прячем лоадер. Кнопка будет либо активирована, либо деактивирована
+      // на основе данных в useEffect после fetchStatus.
       mainButton.hideLoader(); 
       setTimeout(() => setClaimMessage(null), 5000);
     }
@@ -159,7 +164,7 @@ function App() {
     mainButton.onClick(handleClaim);
 
     // Настройка цвета кнопки
-    mainButton.setParams({ color: TWA.themeParams.button_color || '#27AE60', text_color: TWA.themeParams.button_text_color || '#FFFFFF' });
+    mainButton.setParams({ color: TWA.themeParams.button_color || '#27AE60', text_color: TWA.themeParams.button_color ? TWA.themeParams.button_text_color : '#FFFFFF' });
     
     // Логика отображения/скрытия кнопки и текста
     const earned = status.earned_now;
@@ -169,6 +174,7 @@ function App() {
       mainButton.setText(`КЛЕЙМ (${formatEarned(earned)} USDT)`);
       mainButton.enable();
     } else {
+      // После клейма earned_now станет 0, и кнопка будет деактивирована
       mainButton.setText(`МАЙНИНГ АКТИВЕН (${status.daily_rate.toFixed(1)}%)`);
       mainButton.disable();
     }
