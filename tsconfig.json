@@ -1,7 +1,26 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "compilerOptions": {
+    // Настройки для современного TSX/React-проекта
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOMAcl"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    // Настройки для сборщика (Vite)
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx", // Обязательно для React
+
+    // Строгие правила (для App.tsx с типами)
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  // Указываем, что нужно включить все файлы из папки src
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
