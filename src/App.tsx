@@ -13,20 +13,33 @@ if (API_BASE_URL.includes("your-actual-ngrok-url-here")) {
 }
 
 
+// УДАЛЕНИЕ ОШИБОК TS: Используем явный 'any' для глобальных объектов
 // Вспомогательные функции для доступа к WebApp API (без импортов SDK)
-const TWA = window.Telegram ? window.Telegram.WebApp : null;
+const TWA: any = (window as any).Telegram ? (window as any).Telegram.WebApp : null;
 const initData = TWA ? TWA.initData : ''; 
 const mainButton = TWA ? TWA.MainButton : null;
 const utils = TWA;
 
-const formatBalance = (value) => value.toFixed(2);
-const formatEarned = (value) => value.toFixed(8); // Увеличим точность для майнинга
+// УДАЛЕНИЕ ОШИБОК TS: Явное указание типа 'number' для value
+const formatBalance = (value: number) => value.toFixed(2);
+const formatEarned = (value: number) => value.toFixed(8); // Увеличим точность для майнинга
+
+// Тип для данных статуса
+interface MinerStatus {
+  user_id: string;
+  miner_balance: number;
+  current_base_balance: number;
+  daily_rate: number;
+  earned_now: number;
+  mining_started: boolean;
+}
 
 function App() {
-  const [status, setStatus] = useState(null);
+  // УДАЛЕНИЕ ОШИБОК TS: Явное указание типа null | MinerStatus
+  const [status, setStatus] = useState<MinerStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [claimMessage, setClaimMessage] = useState(null);
+  const [error, setError] = useState<string | null>(null); // УДАЛЕНИЕ ОШИБОК TS: string | null
+  const [claimMessage, setClaimMessage] = useState<string | null>(null); // УДАЛЕНИЕ ОШИБОК TS: string | null
   
   // Ref для отслеживания инициализации TWA
   const twaInitRef = useRef(false);
@@ -36,7 +49,8 @@ function App() {
   const fetchStatus = useCallback(async () => {
     if (!initData) {
       setLoading(false); 
-      setError("ОШИБКА: Telegram WebApp Init Data отсутствует. Приложение должно запускаться из бота.");
+      // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
+      setError("ОШИБКА: Telegram WebApp Init Data отсутствует. Приложение должно запускаться из бота."); 
       return;
     }
 
@@ -68,8 +82,9 @@ function App() {
         
         throw new Error(`Ошибка HTTP ${status}: ${errorText}`);
       }
-
-      const data = await response.json();
+      
+      // УДАЛЕНИЕ ОШИБОК TS: Явное приведение типа для data
+      const data: MinerStatus = await response.json();
       setStatus(data);
 
     } catch (err) {
@@ -79,6 +94,7 @@ function App() {
           `Failed to fetch. Проверьте Ngrok/FastAPI. URL: ${API_BASE_URL}` :
           (err instanceof Error ? err.message : "Неизвестная ошибка при загрузке данных.");
 
+      // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
       setError(`Ошибка сети/API: ${errorMessage}`);
       setStatus(null); 
     } finally {
@@ -87,11 +103,12 @@ function App() {
   }, [initData]); 
 
   const handleClaim = useCallback(async () => {
+    // Проверка статуса (для TS)
     if (!initData || !status || !mainButton || status.earned_now < 0.0001) return;
     
     // 1. Блокируем кнопку и показываем лоадер
-    mainButton.disable();
-    mainButton.showLoader();
+    (mainButton as any).disable();
+    (mainButton as any).showLoader();
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/claim`, {
@@ -122,14 +139,16 @@ function App() {
     } catch (err) {
       console.error("Ошибка при клейме:", err);
       if (err instanceof Error) {
+        // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
         setClaimMessage(`Ошибка клейма: ${err.message}`);
       } else {
+        // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
         setClaimMessage("Неизвестная ошибка при клейме.");
       }
     } finally {
       // 3. Прячем лоадер. Кнопка будет либо активирована, либо деактивирована
       // на основе данных в useEffect после fetchStatus.
-      mainButton.hideLoader(); 
+      (mainButton as any).hideLoader(); 
       setTimeout(() => setClaimMessage(null), 5000);
     }
   }, [status, fetchStatus, initData, mainButton]);
@@ -160,27 +179,27 @@ function App() {
     if (!mainButton || !TWA || !status) return; 
     
     // Установка обработчика
-    mainButton.offClick(handleClaim);
-    mainButton.onClick(handleClaim);
+    (mainButton as any).offClick(handleClaim);
+    (mainButton as any).onClick(handleClaim);
 
     // Настройка цвета кнопки
-    mainButton.setParams({ color: TWA.themeParams.button_color || '#27AE60', text_color: TWA.themeParams.button_color ? TWA.themeParams.button_text_color : '#FFFFFF' });
+    (mainButton as any).setParams({ color: TWA.themeParams.button_color || '#27AE60', text_color: TWA.themeParams.button_color ? TWA.themeParams.button_text_color : '#FFFFFF' });
     
     // Логика отображения/скрытия кнопки и текста
     const earned = status.earned_now;
-    mainButton.show();
+    (mainButton as any).show();
     
     if (earned > 0.0001) {
-      mainButton.setText(`КЛЕЙМ (${formatEarned(earned)} USDT)`);
-      mainButton.enable();
+      (mainButton as any).setText(`КЛЕЙМ (${formatEarned(earned)} USDT)`);
+      (mainButton as any).enable();
     } else {
       // После клейма earned_now станет 0, и кнопка будет деактивирована
-      mainButton.setText(`МАЙНИНГ АКТИВЕН (${status.daily_rate.toFixed(1)}%)`);
-      mainButton.disable();
+      (mainButton as any).setText(`МАЙНИНГ АКТИВЕН (${status.daily_rate.toFixed(1)}%)`);
+      (mainButton as any).disable();
     }
 
     return () => {
-      mainButton.offClick(handleClaim);
+      (mainButton as any).offClick(handleClaim);
     };
   }, [loading, error, status, handleClaim, mainButton, TWA]);
 
