@@ -1,31 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'; // Удален 'React' из фигурных скобок
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import './App.css';
+import { useInitData, useMainButton, useUtils } from '@twa-dev/sdk/react';
 
 // =================================================================
-// === ВНИМАНИЕ: КРИТИЧЕСКИ ВАЖНАЯ КОНФИГУРАЦИЯ БЭКЕНДА! ===
-// ПОЖАЛУЙСТА, ПРОВЕРЬТЕ, ЧТО ЭТОТ URL АКТУАЛЕН!
-// 🛑🛑🛑 КРИТИЧЕСКИ ВАЖНО: ВСТАВЬТЕ СЮДА НОВЫЙ URL, КОТОРЫЙ ВЫ ПОЛУЧИЛИ ОТ NGROK ПОСЛЕ ЗАПУСКА FASTAPI 🛑🛑🛑
-const API_BASE_URL = "https://coeducational-unconstrained-roxanne.ngrok-free.dev"; // <--- ОБНОВЛЕНО НА URL ПОЛЬЗОВАТЕЛЯ
-// =================================================================
+// === КОНФИГУРАЦИЯ БЭКЕНДА ===
+// ⚠️ КРИТИЧЕСКИ ВАЖНО: ВСТАВЬТЕ СЮДА АКТУАЛЬНЫЙ NGROK URL, 
+// КОТОРЫЙ ВЫ ПОЛУЧИЛИ ПОСЛЕ ПЕРЕЗАПУСКА NGROK!
+const API_BASE_URL = "https://coeducational-unconstrained-roxanne.ngrok-free.dev"; // <--- ЗАМЕНИТЕ ЭТУ СТРОКУ!
+// =============================
 
-// Проверка, что Ngrok URL обновлен
-if (API_BASE_URL.includes("ВАШ_НОВЫЙ_NGROK_URL_СЮДА")) {
-  // Используем window.alert, так как TWA.showAlert может быть недоступен на этом этапе
-  window.alert("НЕОБХОДИМО ОБНОВИТЬ API_BASE_URL в App.jsx! ПРИЛОЖЕНИЕ НЕ ЗАРАБОТАЕТ, ПОКА ВЫ НЕ ВСТАВИТЕ АКТУАЛЬНЫЙ URL NGROK.");
-}
-
-
-// УДАЛЕНИЕ ОШИБОК TS: Используем явный 'any' для глобальных объектов
-// Вспомогательные функции для доступа к WebApp API (без импортов SDK)
-const TWA: any = (window as any).Telegram ? (window as any).Telegram.WebApp : null;
-const initData = TWA ? TWA.initData : ''; 
-const mainButton = TWA ? TWA.MainButton : null;
-const utils = TWA;
-
-// УДАЛЕНИЕ ОШИБОК TS: Явное указание типа 'number' для value
-const formatBalance = (value: number) => value.toFixed(2);
-const formatEarned = (value: number) => value.toFixed(8); // Увеличим точность для майнинга
-
-// Тип для данных статуса
 interface MinerStatus {
   user_id: string;
   miner_balance: number;
@@ -35,25 +18,43 @@ interface MinerStatus {
   mining_started: boolean;
 }
 
+// Убедитесь, что форматтеры всегда возвращают числовые строки
+const formatBalance = (value: number) => value.toFixed(2);
+const formatEarned = (value: number) => value.toFixed(4);
+
 function App() {
-  // УДАЛЕНИЕ ОШИБОК TS: Явное указание типа null | MinerStatus
+  const initData = useInitData();
+  const mainButton = useMainButton();
+  const utils = useUtils();
+
   const [status, setStatus] = useState<MinerStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // УДАЛЕНИЕ ОШИБОК TS: string | null
-  const [claimMessage, setClaimMessage] = useState<string | null>(null); // УДАЛЕНИЕ ОШИБОК TS: string | null
+  const [error, setError] = useState<string | null>(null);
+  const [claimMessage, setClaimMessage] = useState<string | null>(null);
+  
+  // Создаем функцию для установки состояния "загрузка" и "ошибка"
+  const setFatalError = (message: string) => {
+    setError(message);
+    setLoading(false);
+    setStatus(null);
+  };
   
   // Ref для отслеживания инициализации TWA
   const twaInitRef = useRef(false);
 
-  // --- ФУНКЦИИ ЗАПРОСОВ ---
-
   const fetchStatus = useCallback(async () => {
-    if (!initData) {
+    // Используем window.Telegram.WebApp.initData для надежности, если SDK не успел инициализироваться
+    const currentInitData = initData || (window as any).Telegram?.WebApp?.initData;
+    
+    if (!currentInitData) {
       setLoading(false); 
-      // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
-      setError("ОШИБКА: Telegram WebApp Init Data отсутствует. Приложение должно запускаться из бота."); 
+      setError("ОШИБКА: Telegram WebApp Init Data отсутствует."); 
       return;
     }
+
+    const controller = new AbortController();
+    // Установим более короткий таймаут для быстрой диагностики
+    const timeoutId = setTimeout(() => controller.abort(), 7000); // 7 секунд
 
     try {
       setError(null); 
@@ -62,54 +63,60 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/status`, {
         method: 'GET',
         headers: {
-          // X-Telegram-Init-Data отправляется, но бэкенд его сейчас игнорирует
-          'X-Telegram-Init-Data': initData, 
+          'X-Telegram-Init-Data': currentInitData,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
+      // Проверка HTTP-статуса
       if (!response.ok) {
         let errorText = await response.text();
-        const status = response.status;
-        
         try {
           const errorJson = JSON.parse(errorText);
           errorText = errorJson.detail || errorText;
         } catch {}
 
-        if (errorText.startsWith("<!DOCTYPE")) {
-             errorText = `Получен HTML (${response.status}) вместо JSON. Ngrok не активен или домен истек. Проверьте консоль Ngrok!`
-        }
-        
-        throw new Error(`Ошибка HTTP ${status}: ${errorText}`);
+        throw new Error(`Ошибка HTTP ${response.status}: ${errorText}`);
+      }
+
+      // ⚠️ КРИТИЧЕСКАЯ ТОЧКА: Парсинг JSON
+      const text = await response.text();
+      let data: MinerStatus;
+      try {
+          data = JSON.parse(text);
+      } catch(e) {
+          // Если ошибка парсинга, то в ответе пришел невалидный JSON
+          throw new Error(`Ошибка парсинга JSON: Ответ сервера: "${text.substring(0, 50)}..."`);
       }
       
-      // УДАЛЕНИЕ ОШИБОК TS: Явное приведение типа для data
-      const data: MinerStatus = await response.json();
+      // Дополнительная проверка структуры данных
+      if (!data.user_id || typeof data.current_base_balance === 'undefined') {
+          throw new Error("Сервер вернул неполные или неверные данные.");
+      }
+
       setStatus(data);
 
     } catch (err) {
-      console.error("Ошибка при получении статуса майнера:", err);
-      
-      const errorMessage = err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network')) ? 
-          `Failed to fetch. Проверьте Ngrok/FastAPI. URL: ${API_BASE_URL}` :
-          (err instanceof Error ? err.message : "Неизвестная ошибка при загрузке данных.");
-
-      // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
-      setError(`Ошибка сети/API: ${errorMessage}`);
-      setStatus(null); 
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setFatalError("Ошибка сети: Превышено время ожидания (7 сек). Проверьте Ngrok/FastAPI.");
+      } else if (err instanceof Error) {
+        setFatalError(`Ошибка сети/API: ${err.message}`);
+      } else {
+        setFatalError("Неизвестная ошибка при загрузке данных.");
+      }
+      setStatus(null);
     } finally {
-      setLoading(false); 
+      setLoading(false);
     }
-  }, [initData]); 
+  }, [initData]);
 
   const handleClaim = useCallback(async () => {
-    // Проверка статуса (для TS)
-    if (!initData || !status || !mainButton || status.earned_now < 0.0001) return;
+    if (!initData || !status) return;
     
-    // 1. Блокируем кнопку и показываем лоадер
-    (mainButton as any).disable();
-    (mainButton as any).showLoader();
+    mainButton.disable();
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/claim`, {
@@ -133,114 +140,89 @@ function App() {
       
       setClaimMessage(result.message);
       
-      // 2. Успешный клейм: немедленно запрашиваем новый статус для обновления UI
       await fetchStatus();
-      // MainButton будет обновлен в useEffect ниже после получения нового статуса
-      
+
     } catch (err) {
       console.error("Ошибка при клейме:", err);
       if (err instanceof Error) {
-        // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
         setClaimMessage(`Ошибка клейма: ${err.message}`);
       } else {
-        // УДАЛЕНИЕ ОШИБОК TS: Явное указание, что это string
         setClaimMessage("Неизвестная ошибка при клейме.");
       }
     } finally {
-      // 3. Прячем лоадер. Кнопка будет либо активирована, либо деактивирована
-      // на основе данных в useEffect после fetchStatus.
-      (mainButton as any).hideLoader(); 
+      mainButton.enable();
       setTimeout(() => setClaimMessage(null), 5000);
     }
-  }, [status, fetchStatus, initData, mainButton]);
+  }, [initData, status, fetchStatus, mainButton]);
 
-  // --- ЭФФЕКТЫ ---
-
-  // Эффект инициализации TWA и установки интервала
+  // Эффект для автоматической загрузки статуса
   useEffect(() => {
-    if (TWA && !twaInitRef.current) {
-      // КРИТИЧЕСКИ ВАЖНО: Уведомить Telegram, что приложение готово
-      TWA.ready();
-      TWA.expand();
-      twaInitRef.current = true; // Отмечаем, что инициализация прошла
+    // TWA.ready() вызывается внутри useMainButton/useUtils
+    
+    if (initData || (window as any).Telegram?.WebApp?.initData) {
+      fetchStatus();
+      // Обновлять статус каждую минуту
+      const interval = setInterval(fetchStatus, 60000); 
+      return () => clearInterval(interval);
     }
-    
-    // Запускаем первый запрос статуса
-    fetchStatus();
-    
-    // Установка интервала для обновления статуса
-    const interval = setInterval(fetchStatus, 5000); // Ускорим для быстрой проверки
+  }, [fetchStatus, initData]); 
 
-    // Очистка интервала
-    return () => clearInterval(interval);
-  }, [fetchStatus]); 
-
-  // Эффект настройки MainButton
+  // Эффект для MainButton (Кнопка "Клейм")
   useEffect(() => {
-    if (!mainButton || !TWA || !status) return; 
-    
-    // Установка обработчика
-    (mainButton as any).offClick(handleClaim);
-    (mainButton as any).onClick(handleClaim);
+    if (loading || error || !status) {
+      mainButton.hide();
+      return;
+    }
 
-    // Настройка цвета кнопки
-    (mainButton as any).setParams({ color: TWA.themeParams.button_color || '#27AE60', text_color: TWA.themeParams.button_color ? TWA.themeParams.button_text_color : '#FFFFFF' });
-    
-    // Логика отображения/скрытия кнопки и текста
     const earned = status.earned_now;
-    (mainButton as any).show();
     
+    mainButton.setText(`КЛЕЙМ (${formatEarned(earned)} USDT)`);
+    mainButton.show();
+    
+    // Активация кнопки только если что-то намайнено
     if (earned > 0.0001) {
-      (mainButton as any).setText(`КЛЕЙМ (${formatEarned(earned)} USDT)`);
-      (mainButton as any).enable();
+      mainButton.enable();
     } else {
-      // После клейма earned_now станет 0, и кнопка будет деактивирована
-      (mainButton as any).setText(`МАЙНИНГ АКТИВЕН (${status.daily_rate.toFixed(1)}%)`);
-      (mainButton as any).disable();
+      mainButton.disable();
+      mainButton.setText(`МАЙНИНГ АКТИВЕН (${status.daily_rate.toFixed(1)}%)`);
     }
+
+    // Отписка/подписка на обработчик
+    const handler = () => handleClaim();
+    mainButton.offClick(handler); // Ensure we don't duplicate handlers
+    mainButton.onClick(handler);
 
     return () => {
-      (mainButton as any).offClick(handleClaim);
+      mainButton.offClick(handler);
     };
-  }, [loading, error, status, handleClaim, mainButton, TWA]);
+  }, [loading, error, status, mainButton, handleClaim]);
 
-  // Установка цвета фона
+
+  // Установка цвета темы
   useEffect(() => {
-    document.body.style.backgroundColor = TWA?.themeParams.bg_color || '#1e1e1e'; 
+    document.body.style.backgroundColor = 'var(--tg-theme-bg-color, #1e1e1e)'; 
   }, []);
 
-  // --- РЕНДЕРИНГ ИНТЕРФЕЙСА ---
-
+  // Единый компонент для показа ошибки/загрузки
   if (loading && !error) {
-    return <div className="text-center p-8 text-xl text-gray-400" style={{ color: TWA?.themeParams.hint_color }}>Загрузка данных Майнера...</div>;
+    return <div className="text-center p-8 text-xl text-gray-400">Загрузка данных "Майнера"...</div>;
   }
   
   if (error || !status) {
+      // В этом блоке мы уверены, что fetchStatus отработал, и произошла ошибка
       return (
-        <div className="p-4 text-center bg-gray-900 rounded-xl shadow-2xl border-2 border-red-500 text-red-100">
-          <h2 className="text-2xl font-bold mb-4 text-red-300">ОШИБКА ПОДКЛЮЧЕНИЯ</h2>
-          <p className="mb-2 font-semibold text-white">Приложение не может связаться с бэкендом (Ngrok/FastAPI).</p>
-          
-          <div className="mt-4 p-3 bg-red-800 rounded-lg text-left break-all">
-            <p className="text-sm font-mono mb-2">
-                <span className="font-bold text-yellow-300">Причина ошибки:</span> {error || "Статус API не получен."}
-            </p>
-            <p className="text-sm font-mono border-t border-red-700 pt-2">
-                <span className="font-bold text-yellow-300">Целевой API URL:</span> <span className="text-red-300">{API_BASE_URL}</span>
-            </p>
-            <p className="text-sm font-mono mt-1">
-                <span className="font-bold text-yellow-300">InitData:</span> <span className="text-gray-400 break-words">{initData ? "ПРИСУТСТВУЕТ (длина: " + initData.length + ")" : "ОТСУТСТВУЕТ!"}</span>
-            </p>
-          </div>
-          
-          <p className="text-sm mt-4 text-gray-300">
-            **1. Ngrok/URL:** Убедитесь, что Ngrok работает и URL: <span className="font-mono text-red-300">{API_BASE_URL}</span> активен.
-            <br/>**2. Бэкенд:** Проверьте консоль FastAPI (`localhost:8000`) на предмет ошибок.
-            <br/>**3. Кэш:** Если проблема сохраняется, возможно, нужно использовать другой браузер/клиент Telegram.
+        <div className="p-8 text-center text-red-500">
+          <h2 className="text-2xl font-bold mb-4">Ошибка подключения!</h2>
+          <p className="mb-2">Приложение не может получить данные от бэкенда.</p>
+          <p className="text-sm break-all">Причина: <span className="text-yellow-300">{error || "Неизвестная ошибка при получении статуса."}</span></p>
+          <p className="text-sm mt-4 text-gray-400">
+            1. Проверьте **URL Ngrok** в коде. <br/>
+            2. Проверьте **логи Uvicorn** (401 или 500?).<br/>
+            3. Убедитесь, что **бот-токен** в `.env` верен.
           </p>
           <button 
             onClick={fetchStatus} 
-            className="mt-6 w-full py-3 text-white font-bold rounded-xl bg-red-700 hover:bg-red-600 transition shadow-lg shadow-red-500/50"
+            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
           >
             Повторить попытку
           </button>
@@ -248,24 +230,24 @@ function App() {
       );
   }
 
-  // Здесь status уже не null
+  // Основной интерфейс
   return (
-    <div className="p-4 md:p-8 space-y-6" style={{ color: TWA?.themeParams.text_color || '#FFFFFF' }}>
-      <div className="bg-gray-800 p-4 rounded-xl shadow-lg" style={{ backgroundColor: TWA?.themeParams.secondary_bg_color }}>
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="bg-gray-800 p-4 rounded-xl shadow-lg">
         <h1 className="text-xl font-bold text-center text-white mb-2">💎 Крипто-Майнер TMA</h1>
         <p className="text-sm text-gray-400 text-center break-all">
-          User ID (Debug): <span className="font-mono text-yellow-300">{status.user_id}</span>
+          User ID: <span className="font-mono text-yellow-300">{status.user_id}</span>
         </p>
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-yellow-500/30" style={{ backgroundColor: TWA?.themeParams.secondary_bg_color }}>
+      <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-yellow-500/30">
         <p className="text-sm text-gray-400">Базовый Инвестиционный Баланс</p>
         <div className="text-4xl font-extrabold text-white mt-1">
           💰 {formatBalance(status.current_base_balance)} USDT
         </div>
         <div className="mt-4 pt-4 border-t border-gray-700">
           <p className="text-sm text-gray-400">Начислено с последнего клейма:</p>
-          <div className="text-3xl font-bold text-green-400 flex items-center mt-1">
+          <div className="text-2xl font-bold text-green-400 flex items-center mt-1">
             ✨ {formatEarned(status.earned_now)} USDT 
           </div>
           <p className="text-xs text-gray-500 mt-2">
@@ -274,7 +256,7 @@ function App() {
         </div>
       </div>
       
-      <div className="text-center p-3 rounded-lg" style={{ backgroundColor: TWA?.themeParams.secondary_bg_color }}>
+      <div className="text-center p-3 bg-gray-700/50 rounded-lg">
         <span className={`font-bold ${status.mining_started ? 'text-green-400' : 'text-yellow-400'}`}>
           Статус: {status.mining_started ? 'Майнинг активен' : 'Ожидает пополнения'}
         </span>
@@ -287,13 +269,12 @@ function App() {
       )}
 
       <button 
-        onClick={() => utils?.openTelegramLink("https://t.me/telegram")}
+        onClick={() => utils.openTelegramLink("https://t.me/telegram")}
         className="w-full py-3 text-white font-bold rounded-xl bg-blue-600 hover:bg-blue-700 transition duration-200 shadow-lg shadow-blue-500/50"
       >
-        Как пополнить баланс? (Кнопка-заглушка)
+        Как пополнить баланс?
       </button>
-      {/* Дополнительный отступ для главной кнопки Telegram */}
-      <div className="h-10"></div>
+
     </div>
   );
 }
