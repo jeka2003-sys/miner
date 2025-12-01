@@ -1,27 +1,27 @@
 {
   "compilerOptions": {
-    // Настройки для современного TSX/React-проекта
     "target": "ES2020",
     "useDefineForClassFields": true,
-    // Упрощенный lib: DOM.Iterable удален, чтобы избежать TS6046
-    "lib": ["ES2020", "DOM"], 
+    "lib": ["ES2020", "DOM", "DOMIterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
-    // Настройки для сборщика (Vite)
+    /* JSX Mode: FIX для TS2503 */
+    "jsx": "react-jsx",
+
+    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx", // Обязательно для React
 
-    // Строгие правила
+    /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  // Указываем, что нужно включить все файлы из папки src
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }
