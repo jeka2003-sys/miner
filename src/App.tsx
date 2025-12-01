@@ -225,7 +225,7 @@ function App() {
       );
   }
 
-  
+
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div className="bg-gray-800 p-4 rounded-xl shadow-lg">
@@ -274,3 +274,4 @@ function App() {
   );
 }
 export default App;
+
