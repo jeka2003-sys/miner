@@ -4,6 +4,6 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Добавляем base: './' для правильного построения относительных путей в продакшене.
+  // Оставляем base: './' для правильного построения относительных путей в продакшене.
   base: './', 
 })
