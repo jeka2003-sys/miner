@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './App.css';
 // import { useInitData, useMainButton, useUtils } from '@twa-dev/sdk/react'; <-- УДАЛЕНО, чтобы избежать ошибки TS2307
 
