@@ -60,7 +60,7 @@ function App() {
 
   // Internal refs for fetch control and handler
   const fetchInFlightRef = useRef(false);
-  const handlerRef = useRef<() => void | null>(null);
+  const handlerRef = useRef<(() => void) | null>(null); // Type updated to remove | null from return
   const lastFetchTimeRef = useRef<number>(0);
 
   // Helper to set fatal error
@@ -283,7 +283,11 @@ function App() {
     }
 
     // Handler management: удаляем предыдущий, добавляем новый
-    const handler = () => handleClaim();
+    // FIX TS2322: Оборачиваем асинхронный handleClaim в синхронную функцию,
+    // чтобы соответствовать ожидаемому типу () => void для MainButton и handlerRef.
+    const handler = () => {
+      handleClaim();
+    };
     
     // Удаляем предыдущий, если он был
     if (handlerRef.current && mainBtn?.offClick) {
@@ -341,7 +345,7 @@ function App() {
             <strong>Причина:</strong> <span className="text-yellow-300">{error || 'Нет данных от сервера.'}</span>
           </p>
           <ol className="text-sm list-decimal list-inside mb-4" style={{ color: hint }}>
-            <li>Проверьте <code className="px-1 rounded" style={{ backgroundColor: hint + '20' }}>REACT_APP_API_URL</code> / Ngrok URL.</li>
+            <li>Проверьте <code className="px-1 rounded" style={{ backgroundColor: hint + '20' }}>API_BASE_URL</code> / Ngrok URL.</li>
             <li>Проверьте логи Uvicorn / FastAPI.</li>
             <li>Убедитесь, что бот-токен в `.env` корректен.</li>
           </ol>
