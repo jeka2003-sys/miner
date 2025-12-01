@@ -3,13 +3,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'; // Удале�
 // =================================================================
 // === ВНИМАНИЕ: КРИТИЧЕСКИ ВАЖНАЯ КОНФИГУРАЦИЯ БЭКЕНДА! ===
 // ПОЖАЛУЙСТА, ПРОВЕРЬТЕ, ЧТО ЭТОТ URL АКТУАЛЕН!
+// 🛑🛑🛑 КРИТИЧЕСКИ ВАЖНО: ВСТАВЬТЕ СЮДА НОВЫЙ URL, КОТОРЫЙ ВЫ ПОЛУЧИЛИ ОТ NGROK ПОСЛЕ ЗАПУСКА FASTAPI 🛑🛑🛑
 const API_BASE_URL = "https://coeducational-unconstrained-roxanne.ngrok-free.dev";
 // =================================================================
 
 // Проверка, что Ngrok URL обновлен
-if (API_BASE_URL.includes("your-actual-ngrok-url-here")) {
+if (API_BASE_URL.includes("ВАШ_НОВЫЙ_NGROK_URL_СЮДА")) {
   // Используем window.alert, так как TWA.showAlert может быть недоступен на этом этапе
-  window.alert("НЕОБХОДИМО ОБНОВИТЬ API_BASE_URL в App.jsx!");
+  window.alert("НЕОБХОДИМО ОБНОВИТЬ API_BASE_URL в App.jsx! ПРИЛОЖЕНИЕ НЕ ЗАРАБОТАЕТ, ПОКА ВЫ НЕ ВСТАВИТЕ АКТУАЛЬНЫЙ URL NGROK.");
 }
 
 
@@ -77,7 +78,7 @@ function App() {
         } catch {}
 
         if (errorText.startsWith("<!DOCTYPE")) {
-             errorText = "Получен HTML вместо JSON. Проблема с Ngrok/URL/Прокси Vercel. Проверьте актуальность URL!"
+             errorText = `Получен HTML (${response.status}) вместо JSON. Ngrok не активен или домен истек. Проверьте консоль Ngrok!`
         }
         
         throw new Error(`Ошибка HTTP ${status}: ${errorText}`);
@@ -216,17 +217,26 @@ function App() {
   
   if (error || !status) {
       return (
-        <div className="p-8 text-center bg-gray-900 rounded-xl shadow-2xl border-2 border-red-500 text-red-100">
-          <h2 className="text-2xl font-bold mb-4 text-red-300">ОШИБКА ПОДКЛЮЧЕНИЯ / КЭШ</h2>
-          <p className="mb-2 font-semibold text-white">Приложение не может связаться с бэкендом (Ngrok/FastAPI) или отсутствует InitData.</p>
+        <div className="p-4 text-center bg-gray-900 rounded-xl shadow-2xl border-2 border-red-500 text-red-100">
+          <h2 className="text-2xl font-bold mb-4 text-red-300">ОШИБКА ПОДКЛЮЧЕНИЯ</h2>
+          <p className="mb-2 font-semibold text-white">Приложение не может связаться с бэкендом (Ngrok/FastAPI).</p>
+          
           <div className="mt-4 p-3 bg-red-800 rounded-lg text-left break-all">
-            <p className="text-sm font-mono">
-                <span className="font-bold text-yellow-300">Причина:</span> {error || "Статус API не получен."}
+            <p className="text-sm font-mono mb-2">
+                <span className="font-bold text-yellow-300">Причина ошибки:</span> {error || "Статус API не получен."}
+            </p>
+            <p className="text-sm font-mono border-t border-red-700 pt-2">
+                <span className="font-bold text-yellow-300">Целевой API URL:</span> <span className="text-red-300">{API_BASE_URL}</span>
+            </p>
+            <p className="text-sm font-mono mt-1">
+                <span className="font-bold text-yellow-300">InitData:</span> <span className="text-gray-400 break-words">{initData ? "ПРИСУТСТВУЕТ (длина: " + initData.length + ")" : "ОТСУТСТВУЕТ!"}</span>
             </p>
           </div>
+          
           <p className="text-sm mt-4 text-gray-300">
-            **1. Ngrok/URL:** Проверьте актуальность URL: <span className="font-mono text-red-300">{API_BASE_URL}</span>.
-            <br/>**2. Кэш:** Выполните полный сброс кэша Telegram.
+            **1. Ngrok/URL:** Убедитесь, что Ngrok работает и URL: <span className="font-mono text-red-300">{API_BASE_URL}</span> активен.
+            <br/>**2. Бэкенд:** Проверьте консоль FastAPI (`localhost:8000`) на предмет ошибок.
+            <br/>**3. Кэш:** Если проблема сохраняется, возможно, нужно использовать другой браузер/клиент Telegram.
           </p>
           <button 
             onClick={fetchStatus} 
