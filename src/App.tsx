@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
-import { useInitData, useMainButton, useUtils } from '@twa-dev/sdk/react';
+// import { useInitData, useMainButton, useUtils } from '@twa-dev/sdk/react'; <-- УДАЛЕНО, чтобы избежать ошибки TS2307
 
 // =================================================================
 // === КОНФИГУРАЦИЯ БЭКЕНДА ===
@@ -8,6 +8,13 @@ import { useInitData, useMainButton, useUtils } from '@twa-dev/sdk/react';
 // КОТОРЫЙ ВЫ ПОЛУЧИЛИ ПОСЛЕ ПЕРЕЗАПУСКА NGROK!
 const API_BASE_URL = "https://coeducational-unconstrained-roxanne.ngrok-free.dev"; // <--- ЗАМЕНИТЕ ЭТУ СТРОКУ!
 // =============================
+
+// Вспомогательные функции и объекты для доступа к WebApp API (без SDK)
+const TWA: any = (window as any).Telegram ? (window as any).Telegram.WebApp : null;
+const initData = TWA ? TWA.initData : ''; 
+const mainButton = TWA ? TWA.MainButton : null;
+const utils = TWA;
+
 
 interface MinerStatus {
   user_id: string;
@@ -23,9 +30,10 @@ const formatBalance = (value: number) => value.toFixed(2);
 const formatEarned = (value: number) => value.toFixed(4);
 
 function App() {
-  const initData = useInitData();
-  const mainButton = useMainButton();
-  const utils = useUtils();
+  // Заменяем хуки SDK на локальные переменные
+  // const initData = useInitData();
+  // const mainButton = useMainButton();
+  // const utils = useUtils();
 
   const [status, setStatus] = useState<MinerStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,12 +47,11 @@ function App() {
     setStatus(null);
   };
   
-  // Ref для отслеживания инициализации TWA
-  const twaInitRef = useRef(false);
+  // Ref twaInitRef больше не нужен и удален.
 
   const fetchStatus = useCallback(async () => {
-    // Используем window.Telegram.WebApp.initData для надежности, если SDK не успел инициализироваться
-    const currentInitData = initData || (window as any).Telegram?.WebApp?.initData;
+    // Используем уже определенный initData
+    const currentInitData = initData;
     
     if (!currentInitData) {
       setLoading(false); 
@@ -58,7 +65,8 @@ function App() {
 
     try {
       setError(null); 
-      setLoading(true);
+      // Не сбрасываем loading, если идет повторный запрос, чтобы не мерцал UI
+      // setLoading(true); 
       
       const response = await fetch(`${API_BASE_URL}/api/status`, {
         method: 'GET',
@@ -109,12 +117,13 @@ function App() {
       }
       setStatus(null);
     } finally {
+      // Устанавливаем loading в false только в конце.
       setLoading(false);
     }
   }, [initData]);
 
   const handleClaim = useCallback(async () => {
-    if (!initData || !status) return;
+    if (!initData || !status || !mainButton) return;
     
     mainButton.disable();
 
@@ -150,16 +159,20 @@ function App() {
         setClaimMessage("Неизвестная ошибка при клейме.");
       }
     } finally {
-      mainButton.enable();
+      // MainButton будет обновлен в useEffect ниже после получения нового статуса
       setTimeout(() => setClaimMessage(null), 5000);
     }
-  }, [initData, status, fetchStatus, mainButton]);
+  }, [initData, status, fetchStatus]);
 
-  // Эффект для автоматической загрузки статуса
+  // Эффект для автоматической загрузки статуса и инициализации TWA
   useEffect(() => {
-    // TWA.ready() вызывается внутри useMainButton/useUtils
+    // Инициализация TWA
+    if (TWA) {
+      TWA.ready();
+      TWA.expand();
+    }
     
-    if (initData || (window as any).Telegram?.WebApp?.initData) {
+    if (initData) {
       fetchStatus();
       // Обновлять статус каждую минуту
       const interval = setInterval(fetchStatus, 60000); 
@@ -169,8 +182,8 @@ function App() {
 
   // Эффект для MainButton (Кнопка "Клейм")
   useEffect(() => {
-    if (loading || error || !status) {
-      mainButton.hide();
+    if (!mainButton || loading || error || !status) {
+      if (mainButton) mainButton.hide();
       return;
     }
 
@@ -195,12 +208,12 @@ function App() {
     return () => {
       mainButton.offClick(handler);
     };
-  }, [loading, error, status, mainButton, handleClaim]);
+  }, [loading, error, status, handleClaim]);
 
 
   // Установка цвета темы
   useEffect(() => {
-    document.body.style.backgroundColor = 'var(--tg-theme-bg-color, #1e1e1e)'; 
+    document.body.style.backgroundColor = TWA?.themeParams.bg_color || '#1e1e1e';
   }, []);
 
   // Единый компонент для показа ошибки/загрузки
@@ -211,7 +224,7 @@ function App() {
   if (error || !status) {
       // В этом блоке мы уверены, что fetchStatus отработал, и произошла ошибка
       return (
-        <div className="p-8 text-center text-red-500">
+        <div className="p-8 text-center text-red-500" style={{ color: TWA?.themeParams.text_color }}>
           <h2 className="text-2xl font-bold mb-4">Ошибка подключения!</h2>
           <p className="mb-2">Приложение не может получить данные от бэкенда.</p>
           <p className="text-sm break-all">Причина: <span className="text-yellow-300">{error || "Неизвестная ошибка при получении статуса."}</span></p>
@@ -232,15 +245,15 @@ function App() {
 
   // Основной интерфейс
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="bg-gray-800 p-4 rounded-xl shadow-lg">
+    <div className="p-4 md:p-8 space-y-6" style={{ color: TWA?.themeParams.text_color || '#FFFFFF' }}>
+      <div className="bg-gray-800 p-4 rounded-xl shadow-lg" style={{ backgroundColor: TWA?.themeParams.secondary_bg_color }}>
         <h1 className="text-xl font-bold text-center text-white mb-2">💎 Крипто-Майнер TMA</h1>
         <p className="text-sm text-gray-400 text-center break-all">
           User ID: <span className="font-mono text-yellow-300">{status.user_id}</span>
         </p>
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-yellow-500/30">
+      <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-yellow-500/30" style={{ backgroundColor: TWA?.themeParams.secondary_bg_color }}>
         <p className="text-sm text-gray-400">Базовый Инвестиционный Баланс</p>
         <div className="text-4xl font-extrabold text-white mt-1">
           💰 {formatBalance(status.current_base_balance)} USDT
@@ -256,7 +269,7 @@ function App() {
         </div>
       </div>
       
-      <div className="text-center p-3 bg-gray-700/50 rounded-lg">
+      <div className="text-center p-3 bg-gray-700/50 rounded-lg" style={{ backgroundColor: TWA?.themeParams.secondary_bg_color }}>
         <span className={`font-bold ${status.mining_started ? 'text-green-400' : 'text-yellow-400'}`}>
           Статус: {status.mining_started ? 'Майнинг активен' : 'Ожидает пополнения'}
         </span>
@@ -274,7 +287,8 @@ function App() {
       >
         Как пополнить баланс?
       </button>
-
+      {/* Дополнительный отступ, если MainButton не отображается */}
+      <div className="h-10"></div>
     </div>
   );
 }
