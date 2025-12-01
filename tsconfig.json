@@ -3,7 +3,8 @@
     // Настройки для современного TSX/React-проекта
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOMAcl"],
+    // Упрощенный lib: DOM.Iterable удален, чтобы избежать TS6046
+    "lib": ["ES2020", "DOM"], 
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -15,7 +16,7 @@
     "noEmit": true,
     "jsx": "react-jsx", // Обязательно для React
 
-    // Строгие правила (для App.tsx с типами)
+    // Строгие правила
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
