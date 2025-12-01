@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react'; // Удален 'React' из фигурных скобок
 
 // =================================================================
 // === ВНИМАНИЕ: КРИТИЧЕСКИ ВАЖНАЯ КОНФИГУРАЦИЯ БЭКЕНДА! ===
@@ -254,7 +254,7 @@ function App() {
           💰 {formatBalance(status.current_base_balance)} USDT
         </div>
         <div className="mt-4 pt-4 border-t border-gray-700">
-          <p className="text-sm text-gray-400">Начислено с последнего клейма:</p>
+          <p classNamae="text-sm text-gray-400">Начислено с последнего клейма:</p>
           <div className="text-3xl font-bold text-green-400 flex items-center mt-1">
             ✨ {formatEarned(status.earned_now)} USDT 
           </div>
